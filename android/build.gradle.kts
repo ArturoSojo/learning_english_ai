@@ -19,3 +19,18 @@ subprojects {
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
+
+
+buildscript { //  <--  Add this block
+
+    repositories {
+        google()
+        mavenCentral()
+    }
+   
+    dependencies {  //  <--  Your dependencies block goes here
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.0") //  Add this line if you don't have it
+    }
+
+}
+
