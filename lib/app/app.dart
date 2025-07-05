@@ -12,10 +12,7 @@ class App extends StatelessWidget {
     return MaterialApp(
       title: 'Learning English AI',
       debugShowCheckedModeBanner: false,
-      
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
+      theme: AppTheme.theme,
       home: const AuthWrapper(), 
     );
   }

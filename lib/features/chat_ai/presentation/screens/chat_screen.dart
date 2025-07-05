@@ -6,7 +6,9 @@ import 'package:learning_english_ai/features/chat_ai/presentation/bloc/chat_ai_b
 import 'package:learning_english_ai/features/chat_ai/presentation/screens/home_screen.dart';
 import 'package:learning_english_ai/features/chat_ai/presentation/widgets/chat_message_bubble.dart';
 import 'package:auto_route/annotations.dart';
-import 'package:learning_english_ai/features/chat_ai/domain/entities/chat_message.dart' hide ChatMessage;
+import 'package:learning_english_ai/features/chat_ai/domain/entities/chat_message.dart'
+    hide ChatMessage;
+
 @RoutePage()
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -47,7 +49,7 @@ class _ChatScreenState extends State<ChatScreen> {
       isUser: true,
       timestamp: DateTime.now(),
     );
-    
+
     setState(() {
       _messages.insert(0, userMessage);
     });
@@ -61,7 +63,7 @@ class _ChatScreenState extends State<ChatScreen> {
         isUser: false,
         timestamp: DateTime.now(),
       );
-      
+
       setState(() {
         _messages.insert(0, aiMessage);
       });
@@ -82,8 +84,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = _isDarkMode ? AppTheme.dark : AppTheme.light;
-    
+    final theme = Theme.of(context);
+
     return MaterialApp(
       theme: theme,
       debugShowCheckedModeBanner: false,
@@ -93,15 +95,15 @@ class _ChatScreenState extends State<ChatScreen> {
             icon: const Icon(Icons.arrow_back),
             onPressed: () {
               try {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const HomeScreen(),
-              ),
-            );
-          } catch (e) {
-            debugPrint("Error navegando: $e");
-          }
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const HomeScreen(),
+                  ),
+                );
+              } catch (e) {
+                debugPrint("Error navegando: $e");
+              }
             }, // Navega hacia atrás
           ),
           title: const Text('AI English Tutor'),
@@ -136,9 +138,9 @@ class _ChatScreenState extends State<ChatScreen> {
               return ChatMessageBubble(
                 message: message.message,
                 isUser: message.isUser,
-                bubbleColor: message.isUser 
-                  ? theme.colorScheme.secondary
-                  : theme.colorScheme.primary,
+                bubbleColor: message.isUser
+                    ? theme.colorScheme.secondary
+                    : theme.colorScheme.primary,
               );
             },
           ),
