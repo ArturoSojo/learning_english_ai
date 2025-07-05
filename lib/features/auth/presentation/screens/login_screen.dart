@@ -38,7 +38,7 @@ class LoginScreen extends StatelessWidget {
                 ),
               PrimaryButton(
                 text: 'Continuar con Google',
-                icon: Image.asset('assets/images/google_logo.png', height: 24),
+                icon: Image.asset('assets/images/google.png', height: 24),
                 onPressed: () {
                   context.read<AuthBloc>().add(const AuthLoginWithGoogleRequested());
                 },

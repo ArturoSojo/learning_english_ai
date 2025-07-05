@@ -29,7 +29,8 @@ buildscript { //  <--  Add this block
     }
    
     dependencies {  //  <--  Your dependencies block goes here
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.0") //  Add this line if you don't have it
+        classpath("com.google.gms:google-services:4.3.15")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:2.1.0") //  Add this line if you don't have it
     }
 
 }

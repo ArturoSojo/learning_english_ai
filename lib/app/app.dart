@@ -9,15 +9,14 @@ class App extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Bloc.observer = AppBlocObserver();
-    
     return MaterialApp(
       title: 'Learning English AI',
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
-      themeMode: ThemeMode.system,
       debugShowCheckedModeBanner: false,
-      home: const AuthWrapper(), // Lo implementaremos después
+      
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+      ),
+      home: const AuthWrapper(), 
     );
   }
 }
