@@ -11,21 +11,30 @@ class LoginScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Scaffold(
+      backgroundColor: colorScheme.background,
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text(
+              Text(
                 'Learning English AI',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
               const SizedBox(height: 40),
-              const Text(
+              Text(
                 'Inicia sesión para continuar',
-                style: TextStyle(fontSize: 18),
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: Colors.white70,
+                ),
               ),
               const SizedBox(height: 40),
               if (errorMessage != null)
