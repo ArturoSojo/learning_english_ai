@@ -37,6 +37,14 @@ class HomeScreen extends StatelessWidget {
               child: Icon(Icons.person, color: Colors.white),
             ),
           ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () {
+              context
+                  .read<AuthBloc>()
+                  .add(const AuthLogoutRequested());
+            },
+          ),
         ],
       ),
       body: Padding(
