@@ -5,6 +5,7 @@ import 'package:learning_english_ai/app/routes/router.dart';
 import 'package:learning_english_ai/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:auto_route/annotations.dart';
 import 'package:learning_english_ai/features/chat_ai/presentation/screens/chat_screen.dart';
+import 'package:learning_english_ai/features/chat_ai/presentation/screens/ai_call_screen.dart';
 
 @RoutePage()
 class HomeScreen extends StatelessWidget {
@@ -121,30 +122,36 @@ class HomeScreen extends StatelessWidget {
         backgroundColor: colorScheme.background,
         selectedItemColor: colorScheme.primary,
         unselectedItemColor: Colors.white,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.school), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.mic), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.settings), label: ''),
-        ],
-        
-      ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: colorScheme.primary,
-        onPressed: () {
-          try {
+        currentIndex: 0,
+        onTap: (index) {
+          if (index == 2) {
             Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (_) => const ChatScreen(),
               ),
             );
-          } catch (e) {
-            debugPrint("Error navegando: $e");
           }
         },
-        child: const Icon(Icons.forum,),
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.school), label: ''),
+          BottomNavigationBarItem(icon: Icon(Icons.settings), label: ''),
+          BottomNavigationBarItem(icon: Icon(Icons.chat), label: ''),
+        ],
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: colorScheme.primary,
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const AiCallScreen(),
+            ),
+          );
+        },
+        child: const Icon(Icons.headset_mic),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 
