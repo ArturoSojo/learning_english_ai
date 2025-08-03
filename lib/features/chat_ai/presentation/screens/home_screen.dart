@@ -135,7 +135,7 @@ class HomeScreen extends StatelessWidget {
         },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.school), label: ''),
-          BottomNavigationBarItem(icon: Icon(Icons.settings), label: ''),
+          BottomNavigationBarItem(icon: Icon(Icons.mic), label: ''),
           BottomNavigationBarItem(icon: Icon(Icons.chat), label: ''),
         ],
       ),
@@ -149,9 +149,9 @@ class HomeScreen extends StatelessWidget {
             ),
           );
         },
-        child: const Icon(Icons.headset_mic),
+        child: const Icon(Icons.mic),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
   }
 
