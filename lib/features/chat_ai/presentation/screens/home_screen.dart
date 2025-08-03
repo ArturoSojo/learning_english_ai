@@ -151,7 +151,7 @@ class HomeScreen extends StatelessWidget {
         },
         child: const Icon(Icons.headset_mic),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 
