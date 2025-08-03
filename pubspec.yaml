@@ -23,6 +23,7 @@ dependencies:
   cloud_firestore: ^5.6.10
 
   # IA y voz
+  audioplayers: ^6.1.0
   speech_to_text: ^7.1.0
   text_to_speech: ^0.2.3
   http: ^1.4.0
@@ -56,7 +57,7 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/images/
-
+    - assets/sounds/
   #   - images/a_dot_ham.jpeg
 
   # An image asset can refer to one or more resolution-specific "variants", see
