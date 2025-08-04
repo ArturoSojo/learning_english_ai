@@ -104,7 +104,7 @@ class _HomeScreenState extends State<HomeScreen>
               'Learning Progress',
               style: TextStyle(color: Colors.white70, fontSize: 16),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Center(
               child: Column(
                 children: [
@@ -116,8 +116,8 @@ class _HomeScreenState extends State<HomeScreen>
                         alignment: Alignment.center,
                         children: [
                           SizedBox(
-                            width: 100,
-                            height: 100,
+                            width: 140,
+                            height: 140,
                             child: CircularProgressIndicator(
                               value: _progressAnimation.value,
                               strokeWidth: 8,
