@@ -6,6 +6,7 @@ import 'package:learning_english_ai/features/auth/presentation/bloc/auth_bloc.da
 import 'package:auto_route/annotations.dart';
 import 'package:learning_english_ai/features/chat_ai/presentation/screens/chat_screen.dart';
 import 'package:learning_english_ai/features/chat_ai/presentation/screens/ai_call_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import 'package:flutter/animation.dart';
 import 'package:lottie/lottie.dart'; // Añade este import
@@ -54,6 +55,10 @@ class _HomeScreenState extends State<HomeScreen>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final User? user = context.watch<AuthBloc>().state.maybeWhen(
+          authenticated: (user) => user,
+          orElse: () => null,
+        );
 
     return Scaffold(
       backgroundColor: colorScheme.background,
@@ -62,7 +67,7 @@ class _HomeScreenState extends State<HomeScreen>
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(
-          'Hello,David Jhon',
+          'Hello, ${user?.displayName ?? ''}',
           style: theme.textTheme.bodyLarge?.copyWith(
             color: Colors.white,
             fontWeight: FontWeight.bold,
@@ -74,7 +79,12 @@ class _HomeScreenState extends State<HomeScreen>
             padding: const EdgeInsets.only(right: 16.0),
             child: CircleAvatar(
               backgroundColor: colorScheme.onPrimary.withOpacity(0.2),
-              child: Icon(Icons.person, color: Colors.white),
+              backgroundImage: user?.photoURL != null
+                  ? NetworkImage(user!.photoURL!)
+                  : null,
+              child: user?.photoURL == null
+                  ? const Icon(Icons.person, color: Colors.white)
+                  : null,
             ),
           ),
           IconButton(
