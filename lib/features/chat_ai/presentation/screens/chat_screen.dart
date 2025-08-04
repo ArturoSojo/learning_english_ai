@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:learning_english_ai/features/chat_ai/domain/entities/chat_message.dart';
 import 'package:learning_english_ai/features/chat_ai/presentation/screens/home_screen.dart';
 import 'package:learning_english_ai/features/chat_ai/presentation/widgets/chat_message_bubble.dart';
+import 'package:learning_english_ai/features/chat_ai/data/services/chat_stream_service.dart';
 
 @RoutePage()
 class ChatScreen extends StatefulWidget {
@@ -17,13 +18,7 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isListening = false;
   List<ChatMessage> _messages = [];
 
-  final List<String> _mockResponses = [
-    "That's a great question!",
-    "Here's how we say that in English...",
-    "Let me give you an example sentence.",
-    "You can also say it like this...",
-    "Try repeating this sentence after me...",
-  ];
+  final ChatStreamService _chatService = ChatStreamService();
 
   void _sendMessage(String text) {
     if (text.trim().isEmpty) return;
@@ -35,22 +30,34 @@ class _ChatScreenState extends State<ChatScreen> {
       timestamp: DateTime.now(),
     );
 
+    final aiMsg = ChatMessage(
+      id: DateTime.now().toString(),
+      message: '',
+      isUser: false,
+      timestamp: DateTime.now(),
+    );
+
     setState(() {
       _messages.insert(0, userMsg);
+      _messages.insert(0, aiMsg);
     });
 
-    Future.delayed(const Duration(seconds: 1), () {
-      final aiResponse = ChatMessage(
-        id: DateTime.now().toString(),
-        message: _mockResponses[_messages.length % _mockResponses.length],
-        isUser: false,
-        timestamp: DateTime.now(),
-      );
+    final buffer = StringBuffer();
 
-      setState(() {
-        _messages.insert(0, aiResponse);
-      });
-    });
+    _chatService.queryStream(text).listen(
+      (chunk) {
+        buffer.write(chunk);
+        setState(() {
+          _messages[0] = aiMsg.copyWith(message: buffer.toString());
+        });
+      },
+      onError: (error) {
+        setState(() {
+          _messages[0] =
+              aiMsg.copyWith(message: 'Error: ${error.toString()}');
+        });
+      },
+    );
   }
 
   void _toggleListening() {
