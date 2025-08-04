@@ -1,11 +1,11 @@
 import 'dart:async';
-import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:lottie/lottie.dart';
 import 'package:speech_to_text/speech_to_text.dart';
+import 'package:learning_english_ai/features/chat_ai/data/services/chat_query_service.dart';
 
 class AiCallScreen extends StatefulWidget {
   const AiCallScreen({super.key});
@@ -28,7 +28,7 @@ class _AiCallScreenState extends State<AiCallScreen>
   Timer? _silenceTimer;
   Timer? _inactivityTimer;
   late AnimationController _controller;
-  final Random _random = Random();
+  final ChatQueryService _chatService = ChatQueryService();
 
   @override
   void initState() {
@@ -106,8 +106,17 @@ class _AiCallScreenState extends State<AiCallScreen>
       return;
     }
 
-    await Future.delayed(Duration(seconds: 1 + _random.nextInt(2)));
-    await _generateRandomResponse();
+    try {
+      final prompt = _professionalMode
+          ? 'Please respond in a professional tone: $_lastUserWords'
+          : _lastUserWords;
+      final result = await _chatService.query(prompt);
+      _addMessage('AI: ${result.answer}');
+      await _speak(result.answer);
+    } catch (e) {
+      _addMessage('AI: Error: ${e.toString()}');
+      await _speak('Sorry, an error occurred.');
+    }
 
     _lastUserWords = '';
     _startListening();
@@ -121,40 +130,7 @@ class _AiCallScreenState extends State<AiCallScreen>
         words.contains('terminate');
   }
 
-  Future<void> _generateRandomResponse() async {
-    final responses =
-        _professionalMode ? _professionalResponses : _casualResponses;
-
-    final reply = responses[_random.nextInt(responses.length)];
-    _addMessage('AI: $reply');
-    await _speak(reply);
-  }
-
-  final List<String> _casualResponses = [
-    "That's interesting! Tell me more about it.",
-    "I see what you mean. How does that make you feel?",
-    "Wow, that's quite something!",
-    "Let me think about that... Yes, I agree with you.",
-    "Hmm, that's a good point you're making there.",
-    "You know, I was just thinking about something similar!",
-    "I'd love to hear more details about that.",
-    "That reminds me of something I heard recently.",
-    "Interesting perspective! Can you elaborate?",
-    "I'm not entirely sure about that, but it sounds fascinating."
-  ];
-
-  final List<String> _professionalResponses = [
-    "I understand your point. Could you provide more details?",
-    "That's a valid observation. Let me analyze that.",
-    "Thank you for sharing that information with me.",
-    "Based on my analysis, I would suggest considering alternatives.",
-    "That's an important aspect we should discuss further.",
-    "I appreciate your input on this matter.",
-    "Let me process that information and get back to you.",
-    "That's a comprehensive view of the situation.",
-    "I'll take that into consideration for our discussion.",
-    "Your feedback is valuable for this conversation."
-  ];
+  // Removed random response generation in favor of querying the AI service.
 
   Future<void> _speak(String text) async {
     await _tts.speak(text);
