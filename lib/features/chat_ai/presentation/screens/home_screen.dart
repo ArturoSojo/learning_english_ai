@@ -71,7 +71,7 @@ class _HomeScreenState extends State<HomeScreen>
           style: theme.textTheme.bodyLarge?.copyWith(
             color: Colors.white,
             fontWeight: FontWeight.bold,
-            fontSize: 24,
+            fontSize: 18,
           ),
         ),
         actions: [
@@ -202,7 +202,7 @@ class _HomeScreenState extends State<HomeScreen>
             );
           },
           child: Lottie.asset(
-            'assets/images/Siri.json',
+            'assets/lotties/Siri.json',
             fit: BoxFit.contain,
             repeat: true,
             animate: true,

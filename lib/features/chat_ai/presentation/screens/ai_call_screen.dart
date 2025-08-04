@@ -298,7 +298,7 @@ class _AiCallScreenState extends State<AiCallScreen>
                   )
                 : Center(
                     child: Lottie.asset(
-                      'assets/images/Wave_Loop.json',
+                      'assets/lotties/Wave_Loop.json',
                       fit: BoxFit.contain,
                       repeat: true,
                       animate: true,
