@@ -6,12 +6,19 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:lottie/lottie.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:learning_english_ai/features/chat_ai/data/services/chat_query_service.dart';
+import 'package:english_words/english_words.dart' as ew;
 
 class AiCallScreen extends StatefulWidget {
   const AiCallScreen({super.key});
 
   @override
   State<AiCallScreen> createState() => _AiCallScreenState();
+}
+
+class _Segment {
+  final String text;
+  final bool isEnglish;
+  const _Segment(this.text, this.isEnglish);
 }
 
 class _AiCallScreenState extends State<AiCallScreen>
@@ -29,6 +36,18 @@ class _AiCallScreenState extends State<AiCallScreen>
   Timer? _inactivityTimer;
   late AnimationController _controller;
   final ChatQueryService _chatService = ChatQueryService();
+  final Set<String> _englishWords = {...ew.all};
+
+  // Preferred voices for Spanish (LatAm) and English.
+  // Fallback to neutral accents if specific voices are unavailable on device.
+  final Map<String, String> _spanishFemaleVoice =
+      const {'name': 'es-VE-Standard-A', 'locale': 'es-VE'};
+  final Map<String, String> _spanishMaleVoice =
+      const {'name': 'es-VE-Standard-B', 'locale': 'es-VE'};
+  final Map<String, String> _englishFemaleVoice =
+      const {'name': 'en-US-Wavenet-F', 'locale': 'en-US'};
+  final Map<String, String> _englishMaleVoice =
+      const {'name': 'en-US-Wavenet-D', 'locale': 'en-US'};
 
   @override
   void initState() {
@@ -49,16 +68,18 @@ class _AiCallScreenState extends State<AiCallScreen>
     );
     await _configureTts();
     _playCallSound();
-    await _speak('AI call started. How can I help you today?');
+    await speak('AI call started. How can I help you today?');
     _startListening();
     _resetInactivityTimer();
   }
 
   Future<void> _configureTts() async {
     await _tts.awaitSpeakCompletion(true);
-    await _tts.setLanguage('en-US');
-    await _tts.setPitch(_useFemaleVoice ? 1.1 : 0.9);
     await _tts.setSpeechRate(0.5);
+    await _tts.setPitch(_useFemaleVoice ? 1.1 : 0.9);
+    // Default to Spanish voice; specific voice may vary per platform.
+    await _tts.setVoice(
+        _useFemaleVoice ? _spanishFemaleVoice : _spanishMaleVoice);
   }
 
   void _statusListener(String status) {
@@ -112,10 +133,10 @@ class _AiCallScreenState extends State<AiCallScreen>
           : _lastUserWords;
       final result = await _chatService.query(prompt);
       _addMessage('AI: ${result.answer}');
-      await _speak(result.answer);
+      await speak(result.answer);
     } catch (e) {
       _addMessage('AI: Error: ${e.toString()}');
-      await _speak('Sorry, an error occurred.');
+      await speak('Sorry, an error occurred.');
     }
 
     _lastUserWords = '';
@@ -132,9 +153,58 @@ class _AiCallScreenState extends State<AiCallScreen>
 
   // Removed random response generation in favor of querying the AI service.
 
-  Future<void> _speak(String text) async {
-    await _tts.speak(text);
+  bool _isEnglishWord(String word) {
+    final clean = word.toLowerCase().replaceAll(RegExp(r'[^a-z]'), '');
+    if (clean.isEmpty) return false;
+    return _englishWords.contains(clean);
   }
+
+  List<_Segment> _segmentText(String text) {
+    final tokens = text.split(RegExp(r'(\s+)'));
+    final segments = <_Segment>[];
+    final buffer = StringBuffer();
+    bool? currentEnglish;
+
+    for (final token in tokens) {
+      final isEnglish = _isEnglishWord(token);
+      if (currentEnglish == null || isEnglish != currentEnglish) {
+        if (buffer.isNotEmpty) {
+          segments.add(_Segment(buffer.toString(), currentEnglish ?? false));
+          buffer.clear();
+        }
+        currentEnglish = isEnglish;
+      }
+      buffer.write(token);
+    }
+
+    if (buffer.isNotEmpty) {
+      segments.add(_Segment(buffer.toString(), currentEnglish ?? false));
+    }
+
+    return segments;
+  }
+
+  Future<void> speak(String text) async {
+    final segments = _segmentText(text);
+    for (final seg in segments) {
+      final voice = seg.isEnglish
+          ? (_useFemaleVoice ? _englishFemaleVoice : _englishMaleVoice)
+          : (_useFemaleVoice ? _spanishFemaleVoice : _spanishMaleVoice);
+      await _tts.setVoice(voice);
+      await _tts.speak(seg.text.trim());
+      await _tts.awaitSpeakCompletion(true);
+    }
+  }
+
+  /// Example of SSML usage (not executed by default) to control pauses
+  /// and language switching. Uncomment to experiment with SSML support
+  /// on platforms that allow it.
+  /*
+  Future<void> speakWithSsml(String text) async {
+    final ssml = '<speak>$text</speak>';
+    await _tts.speak(ssml);
+  }
+  */
 
   void _playCallSound() {
     SystemSound.play(SystemSoundType.alert);
@@ -158,7 +228,7 @@ class _AiCallScreenState extends State<AiCallScreen>
     _inactivityTimer?.cancel();
     _speech.stop();
     _playCallSound();
-    await _speak('Call ended. Have a nice day!');
+    await speak('Call ended. Have a nice day!');
     if (mounted) Navigator.pop(context);
   }
 
