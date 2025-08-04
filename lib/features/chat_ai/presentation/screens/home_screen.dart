@@ -7,9 +7,48 @@ import 'package:auto_route/annotations.dart';
 import 'package:learning_english_ai/features/chat_ai/presentation/screens/chat_screen.dart';
 import 'package:learning_english_ai/features/chat_ai/presentation/screens/ai_call_screen.dart';
 
+import 'package:flutter/animation.dart';
+import 'package:lottie/lottie.dart'; // Añade este import
+
 @RoutePage()
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
+  // Cambia de Stateless a StatefulWidget
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _progressController;
+  late Animation<double> _progressAnimation;
+  late AnimationController _glowController;
+  late Animation<double> _glowAnimation;
+  final double _targetProgress = 0.68;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _progressController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    )..forward();
+
+    _progressAnimation = Tween<double>(begin: 0, end: _targetProgress).animate(
+      CurvedAnimation(
+        parent: _progressController,
+        curve: Curves.easeInOut,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _progressController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,9 +80,7 @@ class HomeScreen extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () {
-              context
-                  .read<AuthBloc>()
-                  .add(const AuthLogoutRequested());
+              context.read<AuthBloc>().add(const AuthLogoutRequested());
             },
           ),
         ],
@@ -61,34 +98,36 @@ class HomeScreen extends StatelessWidget {
             Center(
               child: Column(
                 children: [
-                  Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      SizedBox(
-                        width: 100,
-                        height: 100,
-                        child: CircularProgressIndicator(
-                          value: 0.68,
-                          strokeWidth: 8,
-                          backgroundColor: Colors.white24,
-                          valueColor:
-                              AlwaysStoppedAnimation(colorScheme.primary),
-                        ),
-                      ),
-                      const Text(
-                        '68%',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold),
-                      ),
-                    ],
+                  AnimatedBuilder(
+                    // Widget que reconstruye con cada animación
+                    animation: _progressAnimation,
+                    builder: (context, child) {
+                      return Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          SizedBox(
+                            width: 100,
+                            height: 100,
+                            child: CircularProgressIndicator(
+                              value: _progressAnimation.value,
+                              strokeWidth: 8,
+                              backgroundColor: Colors.white24,
+                              valueColor:
+                                  AlwaysStoppedAnimation(colorScheme.primary),
+                            ),
+                          ),
+                          Text(
+                            '${(_progressAnimation.value * 100).toStringAsFixed(0)}%',
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      );
+                    },
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Total User Ratio',
-                    style: TextStyle(color: Colors.white70),
-                  ),
+                  // ... (resto del código)
                 ],
               ),
             ),
@@ -108,7 +147,8 @@ class HomeScreen extends StatelessWidget {
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
                 children: [
-                  _buildCard( context, 'Practice Speaking', Icons.record_voice_over),
+                  _buildCard(
+                      context, 'Practice Speaking', Icons.record_voice_over),
                   _buildCard(context, 'Grammar Lessons', Icons.menu_book),
                   _buildCard(context, 'Vocabulary Builder', Icons.translate),
                   _buildCard(context, 'Conversation Chat', Icons.chat),
@@ -139,17 +179,26 @@ class HomeScreen extends StatelessWidget {
           BottomNavigationBarItem(icon: Icon(Icons.chat), label: ''),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: colorScheme.primary,
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const AiCallScreen(),
-            ),
-          );
-        },
-        child: const Icon(Icons.mic),
+      floatingActionButton: SizedBox(
+        width: 80, // Ajusta el tamaño según necesites
+        height: 80,
+        child: GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const AiCallScreen(),
+              ),
+            );
+          },
+          child: Lottie.asset(
+            'assets/images/Siri.json',
+            fit: BoxFit.contain,
+            repeat: true,
+            animate: true,
+            frameRate: FrameRate.max,
+          ),
+        ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
