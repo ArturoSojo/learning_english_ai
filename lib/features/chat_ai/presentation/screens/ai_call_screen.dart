@@ -2,11 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import 'package:lottie/lottie.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:learning_english_ai/features/chat_ai/data/services/chat_query_service.dart';
-import 'package:learning_english_ai/features/chat_ai/data/services/google_tts_service.dart';
 import 'package:english_words/english_words.dart' as ew;
 
 class AiCallScreen extends StatefulWidget {
@@ -25,8 +24,7 @@ class _Segment {
 class _AiCallScreenState extends State<AiCallScreen>
     with SingleTickerProviderStateMixin {
   final SpeechToText _speech = SpeechToText();
-  final GoogleTtsService _googleTts = GoogleTtsService();
-  final AudioPlayer _audioPlayer = AudioPlayer();
+  final FlutterTts _tts = FlutterTts();
   final List<String> _messages = [];
   bool _isListening = false;
   bool _showSubtitles = false;
@@ -68,10 +66,20 @@ class _AiCallScreenState extends State<AiCallScreen>
       onStatus: _statusListener,
       onError: (error) => _addMessage('Error: $error'),
     );
+    await _configureTts();
     _playCallSound();
     await speak('AI call started. How can I help you today?');
     _startListening();
     _resetInactivityTimer();
+  }
+
+  Future<void> _configureTts() async {
+    await _tts.awaitSpeakCompletion(true);
+    await _tts.setSpeechRate(0.5);
+    await _tts.setPitch(_useFemaleVoice ? 1.1 : 0.9);
+    // Default to Spanish voice; specific voice may vary per platform.
+    await _tts.setVoice(
+        _useFemaleVoice ? _spanishFemaleVoice : _spanishMaleVoice);
   }
 
   void _statusListener(String status) {
@@ -182,15 +190,21 @@ class _AiCallScreenState extends State<AiCallScreen>
       final voice = seg.isEnglish
           ? (_useFemaleVoice ? _englishFemaleVoice : _englishMaleVoice)
           : (_useFemaleVoice ? _spanishFemaleVoice : _spanishMaleVoice);
-      final bytes = await _googleTts.synthesize(
-        text: seg.text.trim(),
-        voice: voice['name']!,
-        languageCode: voice['locale']!,
-      );
-      await _audioPlayer.play(BytesSource(bytes));
-      await _audioPlayer.onPlayerComplete.first;
+      await _tts.setVoice(voice);
+      await _tts.speak(seg.text.trim());
+      await _tts.awaitSpeakCompletion(true);
     }
   }
+
+  /// Example of SSML usage (not executed by default) to control pauses
+  /// and language switching. Uncomment to experiment with SSML support
+  /// on platforms that allow it.
+  /*
+  Future<void> speakWithSsml(String text) async {
+    final ssml = '<speak>$text</speak>';
+    await _tts.speak(ssml);
+  }
+  */
 
   void _playCallSound() {
     SystemSound.play(SystemSoundType.alert);
@@ -226,6 +240,7 @@ class _AiCallScreenState extends State<AiCallScreen>
 
   void _toggleVoice() {
     setState(() => _useFemaleVoice = !_useFemaleVoice);
+    _configureTts();
   }
 
   void _toggleSubtitles() {
@@ -235,7 +250,7 @@ class _AiCallScreenState extends State<AiCallScreen>
   @override
   void dispose() {
     _speech.stop();
-    _audioPlayer.dispose();
+    _tts.stop();
     _silenceTimer?.cancel();
     _inactivityTimer?.cancel();
     _controller.dispose();
