@@ -38,8 +38,6 @@ class _AiCallScreenState extends State<AiCallScreen>
   final ChatQueryService _chatService = ChatQueryService();
   final Set<String> _englishWords = {...ew.all};
 
-  // Preferred voices for Spanish (LatAm) and English.
-  // Fallback to neutral accents if specific voices are unavailable on device.
   final Map<String, String> _spanishFemaleVoice =
       const {'name': 'es-VE-Standard-A', 'locale': 'es-VE'};
   final Map<String, String> _spanishMaleVoice =
@@ -52,13 +50,17 @@ class _AiCallScreenState extends State<AiCallScreen>
   @override
   void initState() {
     super.initState();
+
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
       lowerBound: 0.8,
       upperBound: 1.2,
     )..repeat(reverse: true);
-    _initConversation();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _initConversation();
+    });
   }
 
   Future<void> _initConversation() async {
@@ -66,8 +68,10 @@ class _AiCallScreenState extends State<AiCallScreen>
       onStatus: _statusListener,
       onError: (error) => _addMessage('Error: $error'),
     );
+
     await _configureTts();
     _playCallSound();
+    _addMessage('AI: AI call started. How can I help you today?');
     await speak('AI call started. How can I help you today?');
     _startListening();
     _resetInactivityTimer();
@@ -77,7 +81,6 @@ class _AiCallScreenState extends State<AiCallScreen>
     await _tts.awaitSpeakCompletion(true);
     await _tts.setSpeechRate(0.5);
     await _tts.setPitch(_useFemaleVoice ? 1.1 : 0.9);
-    // Default to Spanish voice; specific voice may vary per platform.
     await _tts.setVoice(
         _useFemaleVoice ? _spanishFemaleVoice : _spanishMaleVoice);
   }
@@ -90,10 +93,11 @@ class _AiCallScreenState extends State<AiCallScreen>
 
   Future<void> _startListening() async {
     _cancelSilenceTimer();
+    await _speech.cancel(); // para reiniciar si ya estaba escuchando
     await _speech.listen(
       onResult: (result) {
         if (result.finalResult) {
-          _lastUserWords = result.recognizedWords;
+          _lastUserWords = result.recognizedWords.trim();
           if (_lastUserWords.isNotEmpty) {
             _addMessage('You: $_lastUserWords');
           }
@@ -105,6 +109,8 @@ class _AiCallScreenState extends State<AiCallScreen>
         _resetTimers();
       },
       listenFor: const Duration(minutes: 5),
+      pauseFor: const Duration(seconds: 1),
+      partialResults: false,
       localeId: 'en-US',
     );
     setState(() => _isListening = true);
@@ -112,7 +118,7 @@ class _AiCallScreenState extends State<AiCallScreen>
 
   void _resetTimers() {
     _cancelSilenceTimer();
-    _silenceTimer = Timer(const Duration(seconds: 3), _processUserInput);
+    _silenceTimer = Timer(const Duration(seconds: 1), _processUserInput);
     _resetInactivityTimer();
   }
 
@@ -121,6 +127,11 @@ class _AiCallScreenState extends State<AiCallScreen>
 
     setState(() => _isListening = false);
     _speech.stop();
+
+    if (_lastUserWords.trim().isEmpty) {
+      _startListening();
+      return;
+    }
 
     if (_shouldEndCall()) {
       await _endCall();
@@ -150,8 +161,6 @@ class _AiCallScreenState extends State<AiCallScreen>
         words.contains('end call') ||
         words.contains('terminate');
   }
-
-  // Removed random response generation in favor of querying the AI service.
 
   bool _isEnglishWord(String word) {
     final clean = word.toLowerCase().replaceAll(RegExp(r'[^a-z]'), '');
@@ -196,16 +205,6 @@ class _AiCallScreenState extends State<AiCallScreen>
     }
   }
 
-  /// Example of SSML usage (not executed by default) to control pauses
-  /// and language switching. Uncomment to experiment with SSML support
-  /// on platforms that allow it.
-  /*
-  Future<void> speakWithSsml(String text) async {
-    final ssml = '<speak>$text</speak>';
-    await _tts.speak(ssml);
-  }
-  */
-
   void _playCallSound() {
     SystemSound.play(SystemSoundType.alert);
   }
@@ -233,7 +232,6 @@ class _AiCallScreenState extends State<AiCallScreen>
   }
 
   void _toggleListening() => _isListening ? _speech.stop() : _startListening();
-
   void _toggleProfessionalMode() {
     setState(() => _professionalMode = !_professionalMode);
   }
@@ -263,7 +261,15 @@ class _AiCallScreenState extends State<AiCallScreen>
     return Scaffold(
       backgroundColor: theme.colorScheme.background,
       appBar: AppBar(
-        title: const Text('AI English Conversation'),
+        title: Row(
+          children: [
+            Lottie.asset(
+              'assets/lotties/AI.json',
+              width: 40,
+              height: 40,
+            ),
+          ],
+        ),
         actions: [
           IconButton(
             icon: Icon(_showSubtitles ? Icons.subtitles : Icons.subtitles_off),

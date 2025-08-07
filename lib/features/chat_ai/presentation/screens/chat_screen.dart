@@ -1,5 +1,6 @@
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
+import 'package:lottie/lottie.dart';
 import 'package:learning_english_ai/features/chat_ai/domain/entities/chat_message.dart';
 import 'package:learning_english_ai/features/chat_ai/presentation/screens/home_screen.dart';
 import 'package:learning_english_ai/features/chat_ai/presentation/widgets/chat_message_bubble.dart';
@@ -53,8 +54,7 @@ class _ChatScreenState extends State<ChatScreen> {
       },
       onError: (error) {
         setState(() {
-          _messages[0] =
-              aiMsg.copyWith(message: 'Error: ${error.toString()}');
+          _messages[0] = aiMsg.copyWith(message: 'Error: ${error.toString()}');
         });
       },
     );
@@ -84,10 +84,21 @@ class _ChatScreenState extends State<ChatScreen> {
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('English AI Tutor'),
+        title: Row(
+          children: [
+            Lottie.asset(
+              'assets/lotties/AI.json',
+              width: 40,
+              height: 40,
+            ),
+          
+            Text(' AI Tutor'),
+          ],
+        ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HomeScreen())),
+          onPressed: () => Navigator.push(
+              context, MaterialPageRoute(builder: (_) => const HomeScreen())),
         ),
         actions: [
           IconButton(
@@ -106,10 +117,32 @@ class _ChatScreenState extends State<ChatScreen> {
               itemCount: _messages.length,
               itemBuilder: (context, index) {
                 final msg = _messages[index];
+
+                // Si el mensaje es del AI y está vacío => mostrar Lottie de carga
+                if (!msg.isUser && msg.message.isEmpty) {
+                  return Align(
+                    alignment: Alignment.centerLeft,
+                    child: Lottie.asset(
+                      'assets/lotties/Loading.json',
+                      width: 140,
+                      height: 100,
+                    ),
+                  );
+                }
+
+                // Si el mensaje es del AI y tiene texto => animar con efecto "máquina de escribir"
+                if (!msg.isUser) {
+                  return _AnimatedTypingText(
+                    text: msg.message,
+                    bubbleColor: theme.colorScheme.primary,
+                  );
+                }
+
+                // Mensajes del usuario normales
                 return ChatMessageBubble(
                   message: msg.message,
                   isUser: msg.isUser,
-                  bubbleColor: msg.isUser ? theme.colorScheme.secondary : theme.colorScheme.primary,
+                  bubbleColor: theme.colorScheme.secondary,
                 );
               },
             ),
@@ -119,7 +152,9 @@ class _ChatScreenState extends State<ChatScreen> {
             child: Row(
               children: [
                 IconButton(
-                  icon: Icon(_isListening ? Icons.stop : Icons.mic, color: theme.colorScheme.primary),
+                  icon: Icon(
+                      _isListening ? Icons.stop : Icons.mic,
+                      color: theme.colorScheme.primary),
                   onPressed: _toggleListening,
                 ),
                 Expanded(
@@ -152,6 +187,51 @@ class _ChatScreenState extends State<ChatScreen> {
           )
         ],
       ),
+    );
+  }
+}
+
+/// Widget para animar texto como si fuera máquina de escribir
+class _AnimatedTypingText extends StatefulWidget {
+  final String text;
+  final Color bubbleColor;
+
+  const _AnimatedTypingText({
+    required this.text,
+    required this.bubbleColor,
+  });
+
+  @override
+  State<_AnimatedTypingText> createState() => _AnimatedTypingTextState();
+}
+
+class _AnimatedTypingTextState extends State<_AnimatedTypingText>
+    with SingleTickerProviderStateMixin {
+  String _displayedText = '';
+  int _charIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _startTyping();
+  }
+
+  void _startTyping() async {
+    for (int i = 0; i <= widget.text.length; i++) {
+      await Future.delayed(const Duration(milliseconds: 30));
+      if (!mounted) return;
+      setState(() {
+        _displayedText = widget.text.substring(0, i);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ChatMessageBubble(
+      message: _displayedText,
+      isUser: false,
+      bubbleColor: widget.bubbleColor,
     );
   }
 }
