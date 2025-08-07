@@ -6,19 +6,12 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:lottie/lottie.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:learning_english_ai/features/chat_ai/data/services/chat_query_service.dart';
-import 'package:english_words/english_words.dart' as ew;
 
 class AiCallScreen extends StatefulWidget {
   const AiCallScreen({super.key});
 
   @override
   State<AiCallScreen> createState() => _AiCallScreenState();
-}
-
-class _Segment {
-  final String text;
-  final bool isEnglish;
-  const _Segment(this.text, this.isEnglish);
 }
 
 class _AiCallScreenState extends State<AiCallScreen>
@@ -36,12 +29,7 @@ class _AiCallScreenState extends State<AiCallScreen>
   Timer? _inactivityTimer;
   late AnimationController _controller;
   final ChatQueryService _chatService = ChatQueryService();
-  final Set<String> _englishWords = {...ew.all};
 
-  final Map<String, String> _spanishFemaleVoice =
-      const {'name': 'es-VE-Standard-A', 'locale': 'es-VE'};
-  final Map<String, String> _spanishMaleVoice =
-      const {'name': 'es-VE-Standard-B', 'locale': 'es-VE'};
   final Map<String, String> _englishFemaleVoice =
       const {'name': 'en-US-Wavenet-F', 'locale': 'en-US'};
   final Map<String, String> _englishMaleVoice =
@@ -50,6 +38,7 @@ class _AiCallScreenState extends State<AiCallScreen>
   @override
   void initState() {
     super.initState();
+    _initConversation();
 
     _controller = AnimationController(
       vsync: this,
@@ -57,10 +46,6 @@ class _AiCallScreenState extends State<AiCallScreen>
       lowerBound: 0.8,
       upperBound: 1.2,
     )..repeat(reverse: true);
-
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _initConversation();
-    });
   }
 
   Future<void> _initConversation() async {
@@ -68,10 +53,8 @@ class _AiCallScreenState extends State<AiCallScreen>
       onStatus: _statusListener,
       onError: (error) => _addMessage('Error: $error'),
     );
-
     await _configureTts();
     _playCallSound();
-    _addMessage('AI: AI call started. How can I help you today?');
     await speak('AI call started. How can I help you today?');
     _startListening();
     _resetInactivityTimer();
@@ -82,7 +65,8 @@ class _AiCallScreenState extends State<AiCallScreen>
     await _tts.setSpeechRate(0.5);
     await _tts.setPitch(_useFemaleVoice ? 1.1 : 0.9);
     await _tts.setVoice(
-        _useFemaleVoice ? _spanishFemaleVoice : _spanishMaleVoice);
+      _useFemaleVoice ? _englishFemaleVoice : _englishMaleVoice,
+    );
   }
 
   void _statusListener(String status) {
@@ -93,11 +77,10 @@ class _AiCallScreenState extends State<AiCallScreen>
 
   Future<void> _startListening() async {
     _cancelSilenceTimer();
-    await _speech.cancel(); // para reiniciar si ya estaba escuchando
     await _speech.listen(
       onResult: (result) {
         if (result.finalResult) {
-          _lastUserWords = result.recognizedWords.trim();
+          _lastUserWords = result.recognizedWords;
           if (_lastUserWords.isNotEmpty) {
             _addMessage('You: $_lastUserWords');
           }
@@ -109,8 +92,6 @@ class _AiCallScreenState extends State<AiCallScreen>
         _resetTimers();
       },
       listenFor: const Duration(minutes: 5),
-      pauseFor: const Duration(seconds: 1),
-      partialResults: false,
       localeId: 'en-US',
     );
     setState(() => _isListening = true);
@@ -127,11 +108,6 @@ class _AiCallScreenState extends State<AiCallScreen>
 
     setState(() => _isListening = false);
     _speech.stop();
-
-    if (_lastUserWords.trim().isEmpty) {
-      _startListening();
-      return;
-    }
 
     if (_shouldEndCall()) {
       await _endCall();
@@ -162,47 +138,11 @@ class _AiCallScreenState extends State<AiCallScreen>
         words.contains('terminate');
   }
 
-  bool _isEnglishWord(String word) {
-    final clean = word.toLowerCase().replaceAll(RegExp(r'[^a-z]'), '');
-    if (clean.isEmpty) return false;
-    return _englishWords.contains(clean);
-  }
-
-  List<_Segment> _segmentText(String text) {
-    final tokens = text.split(RegExp(r'(\s+)'));
-    final segments = <_Segment>[];
-    final buffer = StringBuffer();
-    bool? currentEnglish;
-
-    for (final token in tokens) {
-      final isEnglish = _isEnglishWord(token);
-      if (currentEnglish == null || isEnglish != currentEnglish) {
-        if (buffer.isNotEmpty) {
-          segments.add(_Segment(buffer.toString(), currentEnglish ?? false));
-          buffer.clear();
-        }
-        currentEnglish = isEnglish;
-      }
-      buffer.write(token);
-    }
-
-    if (buffer.isNotEmpty) {
-      segments.add(_Segment(buffer.toString(), currentEnglish ?? false));
-    }
-
-    return segments;
-  }
-
   Future<void> speak(String text) async {
-    final segments = _segmentText(text);
-    for (final seg in segments) {
-      final voice = seg.isEnglish
-          ? (_useFemaleVoice ? _englishFemaleVoice : _englishMaleVoice)
-          : (_useFemaleVoice ? _spanishFemaleVoice : _spanishMaleVoice);
-      await _tts.setVoice(voice);
-      await _tts.speak(seg.text.trim());
-      await _tts.awaitSpeakCompletion(true);
-    }
+    final voice = _useFemaleVoice ? _englishFemaleVoice : _englishMaleVoice;
+    await _tts.setVoice(voice);
+    await _tts.speak(text.trim());
+    await _tts.awaitSpeakCompletion(true);
   }
 
   void _playCallSound() {
@@ -231,7 +171,9 @@ class _AiCallScreenState extends State<AiCallScreen>
     if (mounted) Navigator.pop(context);
   }
 
-  void _toggleListening() => _isListening ? _speech.stop() : _startListening();
+  void _toggleListening() =>
+      _isListening ? _speech.stop() : _startListening();
+
   void _toggleProfessionalMode() {
     setState(() => _professionalMode = !_professionalMode);
   }
