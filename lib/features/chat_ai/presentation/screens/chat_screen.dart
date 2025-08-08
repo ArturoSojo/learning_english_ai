@@ -6,7 +6,7 @@ import 'package:speech_to_text/speech_to_text.dart';
 import 'package:learning_english_ai/features/chat_ai/domain/entities/chat_message.dart';
 import 'package:learning_english_ai/features/chat_ai/presentation/screens/home_screen.dart';
 import 'package:learning_english_ai/features/chat_ai/presentation/widgets/chat_message_bubble.dart';
-import 'package:learning_english_ai/features/chat_ai/data/services/chat_stream_service.dart';
+import 'package:learning_english_ai/features/chat_ai/data/services/chat_query_service.dart';
 
 @RoutePage()
 class ChatScreen extends StatefulWidget {
@@ -19,13 +19,11 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final ChatStreamService _chatService = ChatStreamService();
+  final ChatQueryService _chatService = ChatQueryService();
   final SpeechToText _speech = SpeechToText();
 
   List<ChatMessage> _messages = [];
   bool _isListening = false;
-  bool _isTyping = false;
-  String _currentTypingText = '';
 
   @override
   void initState() {
@@ -49,7 +47,7 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
-  void _sendMessage(String text) {
+  void _sendMessage(String text) async {
     if (text.trim().isEmpty) return;
 
     final userMsg = ChatMessage(
@@ -69,30 +67,18 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() {
       _messages.insert(0, userMsg);
       _messages.insert(0, aiMsg);
-      _isTyping = true;
-      _currentTypingText = '';
     });
 
-    final buffer = StringBuffer();
-
-    _chatService.queryStream(text).listen(
-      (chunk) {
-        buffer.write(chunk);
-        setState(() {
-          _currentTypingText = buffer.toString();
-          _messages[0] = aiMsg.copyWith(message: _currentTypingText);
-        });
-      },
-      onDone: () {
-        setState(() => _isTyping = false);
-      },
-      onError: (error) {
-        setState(() {
-          _messages[0] = aiMsg.copyWith(message: 'Error: ${error.toString()}');
-          _isTyping = false;
-        });
-      },
-    );
+    try {
+      final result = await _chatService.query(text);
+      setState(() {
+        _messages[0] = aiMsg.copyWith(message: result.answer);
+      });
+    } catch (error) {
+      setState(() {
+        _messages[0] = aiMsg.copyWith(message: 'Error: ${error.toString()}');
+      });
+    }
 
     _scrollToBottom();
   }
@@ -189,11 +175,6 @@ class _ChatScreenState extends State<ChatScreen> {
               },
             ),
           ),
-          if (_isTyping && _currentTypingText.isNotEmpty)
-            _AnimatedTypingText(
-              text: _currentTypingText,
-              bubbleColor: theme.colorScheme.primary,
-            ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
@@ -243,46 +224,3 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 }
 
-class _AnimatedTypingText extends StatefulWidget {
-  final String text;
-  final Color bubbleColor;
-
-  const _AnimatedTypingText({
-    required this.text,
-    required this.bubbleColor,
-  });
-
-  @override
-  State<_AnimatedTypingText> createState() => _AnimatedTypingTextState();
-}
-
-class _AnimatedTypingTextState extends State<_AnimatedTypingText>
-    with SingleTickerProviderStateMixin {
-  String _displayedText = '';
-  int _charIndex = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _startTyping();
-  }
-
-  void _startTyping() async {
-    for (int i = 0; i <= widget.text.length; i++) {
-      await Future.delayed(const Duration(milliseconds: 800));
-      if (!mounted) return;
-      setState(() {
-        _displayedText = widget.text.substring(0, i);
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return ChatMessageBubble(
-      message: _displayedText,
-      isUser: false,
-      bubbleColor: widget.bubbleColor,
-    );
-  }
-}
