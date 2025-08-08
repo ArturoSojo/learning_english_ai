@@ -10,7 +10,7 @@ class ChatQueryService {
   Future<QueryResponse> query(String message) async {
     final Map<String, dynamic> body = {
       'message': message,
-      'bot_id': '6886d2b8cbc07515ccb33a2a',
+      'bot_id': '68961f300f36ac73e8dff085',
     };
 
     if (_sessionId != null && _sessionId!.isNotEmpty) {
@@ -28,7 +28,7 @@ class ChatQueryService {
     );
 
     if (response.statusCode != 200) {
-      throw http.ClientException('Failed with status: ${response.statusCode}');
+      throw http.ClientException('An error occurred, please try again later.');
     }
 
     final Map<String, dynamic> data = jsonDecode(response.body);

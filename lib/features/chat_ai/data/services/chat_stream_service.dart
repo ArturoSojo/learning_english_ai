@@ -18,13 +18,13 @@ class ChatStreamService {
       })
       ..body = jsonEncode({
         'message': message,
-        'bot_id': '6886d2b8cbc07515ccb33a2a',
+        'bot_id': '68961f300f36ac73e8dff085',
       });
 
     try {
       final response = await _client.send(request);
       if (response.statusCode != 200) {
-        throw http.ClientException('Failed with status: ${response.statusCode}');
+        throw http.ClientException('An error occurred, please try again later.');
       }
 
       await for (final chunk in response.stream.transform(utf8.decoder)) {
