@@ -29,11 +29,16 @@ class _AiCallScreenState extends State<AiCallScreen>
   Timer? _inactivityTimer;
   late AnimationController _controller;
   final ChatQueryService _chatService = ChatQueryService();
+  final ScrollController _scrollController = ScrollController();
 
-  final Map<String, String> _englishFemaleVoice =
-      const {'name': 'en-US-Wavenet-F', 'locale': 'en-US'};
-  final Map<String, String> _englishMaleVoice =
-      const {'name': 'en-US-Wavenet-D', 'locale': 'en-US'};
+  final Map<String, String> _englishFemaleVoice = const {
+    'name': 'en-US-Wavenet-F',
+    'locale': 'en-US'
+  };
+  final Map<String, String> _englishMaleVoice = const {
+    'name': 'en-US-Wavenet-D',
+    'locale': 'en-US'
+  };
 
   @override
   void initState() {
@@ -151,6 +156,7 @@ class _AiCallScreenState extends State<AiCallScreen>
 
   void _addMessage(String message) {
     setState(() => _messages.add(message));
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
   }
 
   void _resetInactivityTimer() {
@@ -162,6 +168,16 @@ class _AiCallScreenState extends State<AiCallScreen>
     _silenceTimer?.cancel();
   }
 
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
   Future<void> _endCall() async {
     _cancelSilenceTimer();
     _inactivityTimer?.cancel();
@@ -171,8 +187,7 @@ class _AiCallScreenState extends State<AiCallScreen>
     if (mounted) Navigator.pop(context);
   }
 
-  void _toggleListening() =>
-      _isListening ? _speech.stop() : _startListening();
+  void _toggleListening() => _isListening ? _speech.stop() : _startListening();
 
   void _toggleProfessionalMode() {
     setState(() => _professionalMode = !_professionalMode);
@@ -256,6 +271,7 @@ class _AiCallScreenState extends State<AiCallScreen>
           Expanded(
             child: _showSubtitles
                 ? ListView.builder(
+                    controller: _scrollController,
                     padding: const EdgeInsets.all(16),
                     itemCount: _messages.length,
                     itemBuilder: (context, index) {

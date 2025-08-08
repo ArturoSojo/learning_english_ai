@@ -8,7 +8,7 @@ class ChatQueryService {
 
   Future<QueryResponse> query(String message) async {
     final response = await _client.post(
-      Uri.parse('https://ww68wbbt-8888.euw.devtunnels.ms/api/v1/rag/query'),
+      Uri.parse('https://dapi.pulbot.store/api/v1/rag/query'),
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',

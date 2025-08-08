@@ -9,7 +9,7 @@ class ChatStreamService {
   Stream<String> queryStream(String message) async* {
     final request = http.Request(
       'POST',
-      Uri.parse('https://ww68wbbt-8888.euw.devtunnels.ms/api/v1/rag/query-stream'),
+      Uri.parse('https://dapi.pulbot.store/api/v1/rag/query-stream'),
     )
       ..headers.addAll({
         'Content-Type': 'application/json',

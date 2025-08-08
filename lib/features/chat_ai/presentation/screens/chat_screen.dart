@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:auto_route/auto_route.dart';
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
+import 'package:speech_to_text/speech_to_text.dart';
 import 'package:learning_english_ai/features/chat_ai/domain/entities/chat_message.dart';
 import 'package:learning_english_ai/features/chat_ai/presentation/screens/home_screen.dart';
 import 'package:learning_english_ai/features/chat_ai/presentation/widgets/chat_message_bubble.dart';
@@ -16,10 +18,36 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _textController = TextEditingController();
-  bool _isListening = false;
-  List<ChatMessage> _messages = [];
-
+  final ScrollController _scrollController = ScrollController();
   final ChatStreamService _chatService = ChatStreamService();
+  final SpeechToText _speech = SpeechToText();
+
+  List<ChatMessage> _messages = [];
+  bool _isListening = false;
+  bool _isTyping = false;
+  String _currentTypingText = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _initSpeech();
+  }
+
+  Future<void> _initSpeech() async {
+    await _speech.initialize();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          0.0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
 
   void _sendMessage(String text) {
     if (text.trim().isEmpty) return;
@@ -41,6 +69,8 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() {
       _messages.insert(0, userMsg);
       _messages.insert(0, aiMsg);
+      _isTyping = true;
+      _currentTypingText = '';
     });
 
     final buffer = StringBuffer();
@@ -49,33 +79,53 @@ class _ChatScreenState extends State<ChatScreen> {
       (chunk) {
         buffer.write(chunk);
         setState(() {
-          _messages[0] = aiMsg.copyWith(message: buffer.toString());
+          _currentTypingText = buffer.toString();
+          _messages[0] = aiMsg.copyWith(message: _currentTypingText);
         });
+      },
+      onDone: () {
+        setState(() => _isTyping = false);
       },
       onError: (error) {
         setState(() {
           _messages[0] = aiMsg.copyWith(message: 'Error: ${error.toString()}');
+          _isTyping = false;
         });
       },
     );
+
+    _scrollToBottom();
   }
 
-  void _toggleListening() {
-    setState(() => _isListening = !_isListening);
-
+  void _toggleListening() async {
     if (_isListening) {
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) {
-          setState(() => _isListening = false);
-          _sendMessage("[Voice input] How do I pronounce \"apple\"?");
-        }
-      });
+      await _speech.stop();
+      setState(() => _isListening = false);
+      return;
     }
+
+    final available = await _speech.initialize();
+    if (!available) return;
+
+    setState(() => _isListening = true);
+
+    _speech.listen(
+      localeId: 'en_US',
+      listenFor: const Duration(seconds: 5),
+      onResult: (result) {
+        if (result.finalResult && result.recognizedWords.trim().isNotEmpty) {
+          setState(() => _isListening = false);
+          _sendMessage(result.recognizedWords.trim());
+        }
+      },
+    );
   }
 
   @override
   void dispose() {
     _textController.dispose();
+    _speech.stop();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -86,19 +136,17 @@ class _ChatScreenState extends State<ChatScreen> {
       appBar: AppBar(
         title: Row(
           children: [
-            Lottie.asset(
-              'assets/lotties/AI.json',
-              width: 40,
-              height: 40,
-            ),
-          
-            Text(' AI Tutor'),
+            Lottie.asset('assets/lotties/AI.json', width: 40, height: 40),
+            const SizedBox(width: 8),
+            const Text('AI Tutor'),
           ],
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.push(
-              context, MaterialPageRoute(builder: (_) => const HomeScreen())),
+            context,
+            MaterialPageRoute(builder: (_) => const HomeScreen()),
+          ),
         ),
         actions: [
           IconButton(
@@ -112,13 +160,14 @@ class _ChatScreenState extends State<ChatScreen> {
           const SizedBox(height: 8),
           Expanded(
             child: ListView.builder(
+              controller: _scrollController,
               reverse: true,
               padding: const EdgeInsets.all(16),
               itemCount: _messages.length,
               itemBuilder: (context, index) {
                 final msg = _messages[index];
 
-                // Si el mensaje es del AI y está vacío => mostrar Lottie de carga
+                // Mostrar Lottie si mensaje AI está cargando
                 if (!msg.isUser && msg.message.isEmpty) {
                   return Align(
                     alignment: Alignment.centerLeft,
@@ -130,31 +179,30 @@ class _ChatScreenState extends State<ChatScreen> {
                   );
                 }
 
-                // Si el mensaje es del AI y tiene texto => animar con efecto "máquina de escribir"
-                if (!msg.isUser) {
-                  return _AnimatedTypingText(
-                    text: msg.message,
-                    bubbleColor: theme.colorScheme.primary,
-                  );
-                }
-
-                // Mensajes del usuario normales
                 return ChatMessageBubble(
                   message: msg.message,
                   isUser: msg.isUser,
-                  bubbleColor: theme.colorScheme.secondary,
+                  bubbleColor: msg.isUser
+                      ? theme.colorScheme.secondary
+                      : theme.colorScheme.primary,
                 );
               },
             ),
           ),
+          if (_isTyping && _currentTypingText.isNotEmpty)
+            _AnimatedTypingText(
+              text: _currentTypingText,
+              bubbleColor: theme.colorScheme.primary,
+            ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
               children: [
                 IconButton(
                   icon: Icon(
-                      _isListening ? Icons.stop : Icons.mic,
-                      color: theme.colorScheme.primary),
+                    _isListening ? Icons.stop : Icons.mic,
+                    color: theme.colorScheme.primary,
+                  ),
                   onPressed: _toggleListening,
                 ),
                 Expanded(
@@ -169,6 +217,10 @@ class _ChatScreenState extends State<ChatScreen> {
                         borderSide: BorderSide.none,
                       ),
                     ),
+                    onSubmitted: (value) {
+                      _sendMessage(value);
+                      _textController.clear();
+                    },
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -191,7 +243,6 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 }
 
-/// Widget para animar texto como si fuera máquina de escribir
 class _AnimatedTypingText extends StatefulWidget {
   final String text;
   final Color bubbleColor;
@@ -218,7 +269,7 @@ class _AnimatedTypingTextState extends State<_AnimatedTypingText>
 
   void _startTyping() async {
     for (int i = 0; i <= widget.text.length; i++) {
-      await Future.delayed(const Duration(milliseconds: 30));
+      await Future.delayed(const Duration(milliseconds: 800));
       if (!mounted) return;
       setState(() {
         _displayedText = widget.text.substring(0, i);
