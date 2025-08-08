@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:lottie/lottie.dart';
 import 'package:speech_to_text/speech_to_text.dart';
-import 'package:learning_english_ai/features/chat_ai/data/services/chat_query_service.dart';
+import 'package:learning_english_ai/features/chat_ai/data/services/chat_stream_service.dart';
 
 class AiCallScreen extends StatefulWidget {
   const AiCallScreen({super.key});
@@ -28,7 +28,7 @@ class _AiCallScreenState extends State<AiCallScreen>
   Timer? _silenceTimer;
   Timer? _inactivityTimer;
   late AnimationController _controller;
-  final ChatQueryService _chatService = ChatQueryService();
+  final ChatStreamService _chatService = ChatStreamService();
   final ScrollController _scrollController = ScrollController();
 
   final Map<String, String> _englishFemaleVoice = const {
@@ -123,9 +123,13 @@ class _AiCallScreenState extends State<AiCallScreen>
       final prompt = _professionalMode
           ? 'Please respond in a professional tone: $_lastUserWords'
           : _lastUserWords;
-      final result = await _chatService.query(prompt);
-      _addMessage('AI: ${result.answer}');
-      await speak(result.answer);
+      final buffer = StringBuffer();
+      await for (final chunk in _chatService.sendMessage(prompt)) {
+        buffer.write(chunk);
+      }
+      final answer = buffer.toString();
+      _addMessage('AI: $answer');
+      await speak(answer);
     } catch (e) {
       _addMessage('AI: Error: ${e.toString()}');
       await speak('Sorry, an error occurred.');
@@ -209,6 +213,7 @@ class _AiCallScreenState extends State<AiCallScreen>
     _silenceTimer?.cancel();
     _inactivityTimer?.cancel();
     _controller.dispose();
+    _chatService.dispose();
     super.dispose();
   }
 
