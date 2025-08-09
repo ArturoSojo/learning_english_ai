@@ -6,7 +6,7 @@ import 'package:speech_to_text/speech_to_text.dart';
 import 'package:learning_english_ai/features/chat_ai/domain/entities/chat_message.dart';
 import 'package:learning_english_ai/features/chat_ai/presentation/screens/home_screen.dart';
 import 'package:learning_english_ai/features/chat_ai/presentation/widgets/chat_message_bubble.dart';
-import 'package:learning_english_ai/features/chat_ai/data/services/chat_stream_service.dart';
+import 'package:learning_english_ai/features/chat_ai/data/services/chat_query_service.dart';
 
 @RoutePage()
 class ChatScreen extends StatefulWidget {
@@ -19,11 +19,13 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final ChatStreamService _chatService = ChatStreamService();
   final SpeechToText _speech = SpeechToText();
+  final ChatQueryService _chatService = ChatQueryService();
 
   List<ChatMessage> _messages = [];
   bool _isListening = false;
+
+  // Estado para animación de tipeo
   bool _isTyping = false;
   String _currentTypingText = '';
 
@@ -41,60 +43,50 @@ class _ChatScreenState extends State<ChatScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
-          0.0,
-          duration: const Duration(milliseconds: 300),
+          0.0, // reverse:true → el “final” está en 0.0
+          duration: const Duration(milliseconds: 250),
           curve: Curves.easeOut,
         );
       }
     });
   }
 
-  void _sendMessage(String text) {
+  Future<void> _sendMessage(String text) async {
     if (text.trim().isEmpty) return;
 
+    final now = DateTime.now();
+
     final userMsg = ChatMessage(
-      id: DateTime.now().toString(),
+      id: now.millisecondsSinceEpoch.toString(),
       message: text,
       isUser: true,
-      timestamp: DateTime.now(),
-    );
-
-    final aiMsg = ChatMessage(
-      id: DateTime.now().toString(),
-      message: '',
-      isUser: false,
-      timestamp: DateTime.now(),
+      timestamp: now,
     );
 
     setState(() {
+      // Insertamos el mensaje del usuario
       _messages.insert(0, userMsg);
-      _messages.insert(0, aiMsg);
+
+      // Arrancamos modo “tipeo” (mostrará Lottie y luego animación)
       _isTyping = true;
       _currentTypingText = '';
     });
 
-    final buffer = StringBuffer();
-
-    _chatService.queryStream(text).listen(
-      (chunk) {
-        buffer.write(chunk);
-        setState(() {
-          _currentTypingText = buffer.toString();
-          _messages[0] = aiMsg.copyWith(message: _currentTypingText);
-        });
-      },
-      onDone: () {
-        setState(() => _isTyping = false);
-      },
-      onError: (error) {
-        setState(() {
-          _messages[0] = aiMsg.copyWith(message: 'Error: ${error.toString()}');
-          _isTyping = false;
-        });
-      },
-    );
-
     _scrollToBottom();
+
+    try {
+      final result = await _chatService.query(text);
+
+      // Guardamos el texto que se va a tipear (a 25ms/carácter)
+      setState(() {
+        _currentTypingText = result.answer;
+      });
+    } catch (error) {
+      // Si hay error, mostramos el error con la animada (y luego queda estática)
+      setState(() {
+        _currentTypingText = '${error.toString()}';
+      });
+    }
   }
 
   void _toggleListening() async {
@@ -163,21 +155,49 @@ class _ChatScreenState extends State<ChatScreen> {
               controller: _scrollController,
               reverse: true,
               padding: const EdgeInsets.all(16),
-              itemCount: _messages.length,
+              // +1 item si estamos tipeando para mostrar la animada/loader
+              itemCount: _messages.length + (_isTyping ? 1 : 0),
               itemBuilder: (context, index) {
-                final msg = _messages[index];
-
-                // Mostrar Lottie si mensaje AI está cargando
-                if (!msg.isUser && msg.message.isEmpty) {
-                  return Align(
-                    alignment: Alignment.centerLeft,
-                    child: Lottie.asset(
-                      'assets/lotties/Loading.json',
-                      width: 140,
-                      height: 100,
-                    ),
+                // Si estamos tipeando y es el primer elemento → animada/loader
+                if (_isTyping && index == 0) {
+                  // Aún no llegó texto: mostrar loader
+                  if (_currentTypingText.isEmpty) {
+                    return Align(
+                      alignment: Alignment.centerLeft,
+                      child: Lottie.asset(
+                        'assets/lotties/Loading.json',
+                        width: 140,
+                        height: 100,
+                      ),
+                    );
+                  }
+                  // Ya hay texto: mostrar animación tipo máquina de escribir
+                  return _AnimatedTypingText(
+                    text: _currentTypingText,
+                    bubbleColor: theme.colorScheme.primary,
+                    onFinish: () {
+                      // Cuando termina la animación:
+                      // 1) Inserta burbuja estática con el contenido final
+                      // 2) Apaga el modo tipeo (remueve la animada)
+                      final now = DateTime.now();
+                      final aiMsg = ChatMessage(
+                        id: (now.millisecondsSinceEpoch).toString(),
+                        message: _currentTypingText,
+                        isUser: false,
+                        timestamp: now,
+                      );
+                      setState(() {
+                        _messages.insert(0, aiMsg);
+                        _isTyping = false;
+                      });
+                      _scrollToBottom();
+                    },
                   );
                 }
+
+                // Si no es la animada, mapeamos al índice correcto de _messages
+                final msgIndex = _isTyping ? index - 1 : index;
+                final msg = _messages[msgIndex];
 
                 return ChatMessageBubble(
                   message: msg.message,
@@ -189,11 +209,6 @@ class _ChatScreenState extends State<ChatScreen> {
               },
             ),
           ),
-          if (_isTyping && _currentTypingText.isNotEmpty)
-            _AnimatedTypingText(
-              text: _currentTypingText,
-              bubbleColor: theme.colorScheme.primary,
-            ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
@@ -246,20 +261,20 @@ class _ChatScreenState extends State<ChatScreen> {
 class _AnimatedTypingText extends StatefulWidget {
   final String text;
   final Color bubbleColor;
+  final VoidCallback onFinish;
 
   const _AnimatedTypingText({
     required this.text,
     required this.bubbleColor,
+    required this.onFinish,
   });
 
   @override
   State<_AnimatedTypingText> createState() => _AnimatedTypingTextState();
 }
 
-class _AnimatedTypingTextState extends State<_AnimatedTypingText>
-    with SingleTickerProviderStateMixin {
+class _AnimatedTypingTextState extends State<_AnimatedTypingText> {
   String _displayedText = '';
-  int _charIndex = 0;
 
   @override
   void initState() {
@@ -267,14 +282,15 @@ class _AnimatedTypingTextState extends State<_AnimatedTypingText>
     _startTyping();
   }
 
-  void _startTyping() async {
+  Future<void> _startTyping() async {
     for (int i = 0; i <= widget.text.length; i++) {
-      await Future.delayed(const Duration(milliseconds: 800));
+      await Future.delayed(const Duration(milliseconds: 25));
       if (!mounted) return;
       setState(() {
         _displayedText = widget.text.substring(0, i);
       });
     }
+    widget.onFinish();
   }
 
   @override

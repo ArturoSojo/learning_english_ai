@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:lottie/lottie.dart';
 import 'package:speech_to_text/speech_to_text.dart';
-import 'package:learning_english_ai/features/chat_ai/data/services/chat_query_service.dart';
+import 'package:learning_english_ai/features/chat_ai/data/services/chat_stream_service.dart';
 
 class AiCallScreen extends StatefulWidget {
   const AiCallScreen({super.key});
@@ -28,8 +28,9 @@ class _AiCallScreenState extends State<AiCallScreen>
   Timer? _silenceTimer;
   Timer? _inactivityTimer;
   late AnimationController _controller;
-  final ChatQueryService _chatService = ChatQueryService();
+  final ChatStreamService _chatService = ChatStreamService();
   final ScrollController _scrollController = ScrollController();
+  StreamSubscription<String>? _chatStreamSubscription;
 
   final Map<String, String> _englishFemaleVoice = const {
     'name': 'en-US-Wavenet-F',
@@ -123,16 +124,42 @@ class _AiCallScreenState extends State<AiCallScreen>
       final prompt = _professionalMode
           ? 'Please respond in a professional tone: $_lastUserWords'
           : _lastUserWords;
-      final result = await _chatService.query(prompt);
-      _addMessage('AI: ${result.answer}');
-      await speak(result.answer);
+
+      // Clear previous subscription if exists
+      _chatStreamSubscription?.cancel();
+      
+      String fullResponse = '';
+      _chatStreamSubscription = _chatService.queryStream(prompt).listen(
+        (chunk) {
+          fullResponse += chunk;
+          _updateLastAiMessage(fullResponse);
+        },
+        onError: (e) {
+          _addMessage('AI: Error: ${e.toString()}');
+          speak('Sorry, an error occurred.');
+        },
+        onDone: () async {
+          if (fullResponse.isNotEmpty) {
+            await speak(fullResponse);
+          }
+          _lastUserWords = '';
+          _startListening();
+        },
+      );
     } catch (e) {
       _addMessage('AI: Error: ${e.toString()}');
       await speak('Sorry, an error occurred.');
+      _lastUserWords = '';
+      _startListening();
     }
+  }
 
-    _lastUserWords = '';
-    _startListening();
+  void _updateLastAiMessage(String message) {
+    // Remove the last AI message if it exists
+    if (_messages.isNotEmpty && _messages.last.startsWith('AI:')) {
+      _messages.removeLast();
+    }
+    _addMessage('AI: $message');
   }
 
   bool _shouldEndCall() {
@@ -181,6 +208,7 @@ class _AiCallScreenState extends State<AiCallScreen>
   Future<void> _endCall() async {
     _cancelSilenceTimer();
     _inactivityTimer?.cancel();
+    _chatStreamSubscription?.cancel();
     _speech.stop();
     _playCallSound();
     await speak('Call ended. Have a nice day!');
@@ -208,6 +236,7 @@ class _AiCallScreenState extends State<AiCallScreen>
     _tts.stop();
     _silenceTimer?.cancel();
     _inactivityTimer?.cancel();
+    _chatStreamSubscription?.cancel();
     _controller.dispose();
     super.dispose();
   }

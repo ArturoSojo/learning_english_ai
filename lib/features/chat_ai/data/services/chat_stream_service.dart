@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 
 class ChatStreamService {
   final http.Client _client;
+  String? _sessionId;
 
   ChatStreamService({http.Client? client}) : _client = client ?? http.Client();
 
@@ -19,6 +20,7 @@ class ChatStreamService {
       ..body = jsonEncode({
         'message': message,
         'bot_id': '68961f300f36ac73e8dff085',
+        if (_sessionId != null) 'session_id': _sessionId,
       });
 
     try {
@@ -27,11 +29,22 @@ class ChatStreamService {
         throw http.ClientException('An error occurred, please try again later.');
       }
 
+      // Capture session ID from headers if present
+      final sessionId = response.headers['x-session-id'];
+      if (sessionId != null && sessionId.isNotEmpty) {
+        _sessionId = sessionId;
+      }
+
       await for (final chunk in response.stream.transform(utf8.decoder)) {
         yield chunk;
       }
     } catch (e) {
       throw Exception('Stream error: $e');
     }
+  }
+
+  // Clear the stored session ID if needed
+  void clearSession() {
+    _sessionId = null;
   }
 }
